@@ -45,6 +45,9 @@
                 <catalogsearch_fulltext>
                     <model>elasticgento/indexer_catalog_search</model>
                 </catalogsearch_fulltext>
+                <catalog_product_flat>
+                    <model>elasticgento/indexer_catalog_product</model>
+                </catalog_product_flat>
             </indexer>
         </index>
     </global>
