@@ -81,11 +81,22 @@
                             <show_in_store>0</show_in_store>
                             <validate>required-entry validate-digits</validate>
                         </number_of_replicas>
+                        <chunksize translate="label comment">
+                            <label>Chunksize</label>
+                            <frontend_type>text</frontend_type>
+                            <comment>
+                                <![CDATA[Number of Products proceed within one iteration]]></comment>
+                            <sort_order>50</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                            <validate>required-entry validate-digits</validate>
+                        </chunksize>
                         <facets_max_size translate="label comment">
                             <label>Max Facets Size</label>
                             <frontend_type>text</frontend_type>
                             <comment>Max number of values returned by a facet query.</comment>
-                            <sort_order>59</sort_order>
+                            <sort_order>60</sort_order>
                             <show_in_default>1</show_in_default>
                             <show_in_website>0</show_in_website>
                             <show_in_store>0</show_in_store>
