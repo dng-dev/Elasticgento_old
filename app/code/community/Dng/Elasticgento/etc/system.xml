@@ -1,0 +1,111 @@
+<?xml version="1.0"?>
+<!--
+/**
+* elasticgento configuration
+*
+* @category  Dng
+* @package   Dng_Elasticgento
+* @author    Daniel Niedergesäß <daniel.niedergesaess@gmail.com>
+* @version   1.0.0
+*/
+ -->
+<config>
+    <sections>
+        <elasticgento translate="label" module="elasticgento">
+            <class>separator-top</class>
+            <label>Elasticgento</label>
+            <tab>catalog</tab>
+            <frontend_type>text</frontend_type>
+            <sort_order>40</sort_order>
+            <show_in_default>1</show_in_default>
+            <show_in_website>1</show_in_website>
+            <show_in_store>1</show_in_store>
+            <groups>
+                <general translate="label">
+                    <label>General</label>
+                    <comment>
+                        <![CDATA[Here we should write some useful <strong>documentation</strong> for this section.]]></comment>
+                    <frontend_type>text</frontend_type>
+                    <sort_order>100</sort_order>
+                    <show_in_default>1</show_in_default>
+                    <show_in_website>1</show_in_website>
+                    <show_in_store>1</show_in_store>
+                    <fields>
+                        <versioninfo>
+                            <frontend_model>elasticgento/adminhtml_system_config_fieldset_version</frontend_model>
+                            <sort_order>0</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>1</show_in_website>
+                            <show_in_store>1</show_in_store>
+                        </versioninfo>
+                        <nodes translate="label">
+                            <label>Elasticsearch Nodes</label>
+                            <comment>
+                                <![CDATA[Here we should write some useful <strong>documentation</strong> for this field.]]></comment>
+                            <frontend_model>elasticgento/adminhtml_system_config_fieldset_nodes</frontend_model>
+                            <backend_model>adminhtml/system_config_backend_serialized_array</backend_model>
+                            <sort_order>10</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </nodes>
+                        <timeout translate="label">
+                            <label>Node Timeout</label>
+                            <comment>Number of seconds after a timeout occurs for every request.</comment>
+                            <frontend_type>text</frontend_type>
+                            <sort_order>20</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                            <validate>required-entry validate-greater-than-zero validate-number</validate>
+                        </timeout>
+                        <number_of_shards translate="label comment">
+                            <label>Number of Shards</label>
+                            <frontend_type>text</frontend_type>
+                            <comment>
+                                <![CDATA[Here we should write some useful <strong>documentation</strong> and formula for this setting.]]></comment>
+                            <sort_order>30</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                            <validate>required-entry validate-greater-than-zero validate-digits</validate>
+                        </number_of_shards>
+                        <number_of_replicas translate="label comment">
+                            <label>Number of Replicas</label>
+                            <frontend_type>text</frontend_type>
+                            <comment>
+                                <![CDATA[Here we should write some useful <strong>documentation</strong> and formula for this setting.]]></comment>
+                            <sort_order>40</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                            <validate>required-entry validate-digits</validate>
+                        </number_of_replicas>
+                        <facets_max_size translate="label comment">
+                            <label>Max Facets Size</label>
+                            <frontend_type>text</frontend_type>
+                            <comment>Max number of values returned by a facet query.</comment>
+                            <sort_order>59</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                            <validate>required-entry validate-greater-than-zero validate-digits</validate>
+                        </facets_max_size>
+                        <enable_icu_folding translate="label comment">
+                            <label>Enable ICU Folding Token Filter</label>
+                            <frontend_type>select</frontend_type>
+                            <source_model>adminhtml/system_config_source_yesno</source_model>
+                            <comment><![CDATA[
+                                Depends ICU plugin: <a href="https://github.com/elasticsearch/elasticsearch-analysis-icu" target="_blank">https://github.com/elasticsearch/elasticsearch-analysis-icu</a>.
+                             ]]></comment>
+                            <sort_order>70</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </enable_icu_folding>
+                    </fields>
+                </general>
+            </groups>
+        </elasticgento>
+    </sections>
+</config>

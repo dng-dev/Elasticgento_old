@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/**
+* elasticgento module config file
+*
+* @category  Dng
+* @package   Dng_Elasticgento
+* @author    Daniel Niedergesäß <daniel.niedergesaess@gmail.com>
+* @version   1.0.0
+*/
+-->
+<config>
+    <modules>
+        <Dng_Elasticgento>
+            <version>1.0.0</version>
+        </Dng_Elasticgento>
+    </modules>
+    <global>
+        <helpers>
+            <elasticgento>
+                <class>Dng_Elasticgento_Helper</class>
+            </elasticgento>
+        </helpers>
+        <blocks>
+            <elasticgento>
+                <class>Dng_Elasticgento_Block</class>
+            </elasticgento>
+        </blocks>
+        <models>
+            <elasticgento>
+                <class>Dng_Elasticgento_Model</class>
+                <resourceModel>elasticgento_resource</resourceModel>
+            </elasticgento>
+            <elasticgento_resource>
+                <class>Dng_Elasticgento_Model_Resource</class>
+                <elasticgento_setup>
+                    <setup>
+                        <module>Dng_Elasticgento</module>
+                        <class>Mage_Catalog_Model_Resource_Setup</class>
+                    </setup>
+                </elasticgento_setup>
+            </elasticgento_resource>
+        </models>
+    </global>
+</config>
