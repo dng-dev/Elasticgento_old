@@ -40,6 +40,13 @@
                 </setup>
             </elasticgento_setup>
         </resources>
+        <index>
+            <indexer>
+                <catalogsearch_fulltext>
+                    <model>elasticgento/indexer_catalog_search</model>
+                </catalogsearch_fulltext>
+            </indexer>
+        </index>
     </global>
     <adminhtml>
         <events>
