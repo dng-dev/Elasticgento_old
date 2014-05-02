@@ -31,15 +31,34 @@
                 <class>Dng_Elasticgento_Model</class>
                 <resourceModel>elasticgento_resource</resourceModel>
             </elasticgento>
-            <elasticgento_resource>
-                <class>Dng_Elasticgento_Model_Resource</class>
-                <elasticgento_setup>
-                    <setup>
-                        <module>Dng_Elasticgento</module>
-                        <class>Mage_Catalog_Model_Resource_Setup</class>
-                    </setup>
-                </elasticgento_setup>
-            </elasticgento_resource>
         </models>
+        <resources>
+            <elasticgento_setup>
+                <setup>
+                    <module>Dng_Elasticgento</module>
+                    <class>Mage_Catalog_Model_Resource_Setup</class>
+                </setup>
+            </elasticgento_setup>
+        </resources>
     </global>
+    <adminhtml>
+        <events>
+            <adminhtml_catalog_product_attribute_edit_prepare_form>
+                <observers>
+                    <elasticgento>
+                        <class>elasticgento/adminhtml_observer</class>
+                        <method>catalog_product_attribute_edit_prepare_form</method>
+                    </elasticgento>
+                </observers>
+            </adminhtml_catalog_product_attribute_edit_prepare_form>
+            <catalog_entity_attribute_save_after>
+                <observers>
+                    <elasticgento>
+                        <class>elasticgento/adminhtml_observer</class>
+                        <method>entity_attribute_save_after</method>
+                    </elasticgento>
+                </observers>
+            </catalog_entity_attribute_save_after>
+        </events>
+    </adminhtml>
 </config>
