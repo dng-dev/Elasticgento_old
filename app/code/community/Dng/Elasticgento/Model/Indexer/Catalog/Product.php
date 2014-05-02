@@ -31,14 +31,13 @@ class Dng_Elasticgento_Model_Indexer_Catalog_Product extends Mage_Catalog_Model_
         return Mage::helper('elasticgento')->__('Reorganize EAV product structure to Elasticgento index');
     }
 
-
     /**
      * Retrieve Catalog Product Flat Indexer model
      *
-     * @return Mage_Catalog_Model_Product_Flat_Indexer
+     * @return Dng_Elasticgento_Model_Catalog_Product_Elasticgento_Indexer
      */
-    #protected function _getIndexer()
-    #{
-    #    return Mage::getSingleton('elasticgento/catalog_product_elasticgento_indexer');
-    #}
+    protected function _getIndexer()
+    {
+        return Mage::getSingleton('elasticgento/catalog_product_elasticgento_indexer');
+    }
 }
