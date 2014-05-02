@@ -1,2 +1,3 @@
 app/etc/modules/Dng_Elasticgento.xml                        app/etc/modules/Dng_Elasticgento.xml
 lib/Elastica/                                               lib/Elastica
+app/code/community/Dng/Elasticento/                         app/code/community/Dng/Elasticgento/
