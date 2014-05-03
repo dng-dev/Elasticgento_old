@@ -183,7 +183,7 @@ class Dng_Elasticgento_Model_Resource_Client extends \Elastica\Client
      * @param string $value
      * @return mixed
      */
-    public function _escape($value)
+    public function escape($value)
     {
         $pattern = '/(\+|-|&&|\|\||!|\(|\)|\{|}|\[|]|\^|"|~|\*|\?|:|\\\)/';
         $replace = '\\\$1';
@@ -197,7 +197,7 @@ class Dng_Elasticgento_Model_Resource_Client extends \Elastica\Client
      * @param string $value
      * @return string
      */
-    public function _escapePhrase($value)
+    public function escapePhrase($value)
     {
         $pattern = '/("|\\\)/';
         $replace = '\\\$1';
