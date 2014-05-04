@@ -50,6 +50,15 @@
                 </catalog_product_flat>
             </indexer>
         </index>
+        <cache>
+            <types>
+                <namespace_module module="elasticgento" translate="label description">
+                    <label>Elasticgento</label>
+                    <description>Elasticgento mappings and settings</description>
+                    <tags>ELASTICGENTO</tags>
+                </namespace_module>
+            </types>
+        </cache>
     </global>
     <adminhtml>
         <events>
