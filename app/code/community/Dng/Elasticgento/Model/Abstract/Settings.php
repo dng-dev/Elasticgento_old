@@ -8,7 +8,7 @@
  * @author    Daniel Niedergesäß <daniel.niedergesaess@gmail.com>
  * @version   1.0.0
  */
-class Dng_Elasticgento_Model_Abstract_Settings extends Varien_Object
+class Dng_Elasticgento_Model_Abstract_Settings
 {
     /**
      * Snowball languages supported in elasticsearch
