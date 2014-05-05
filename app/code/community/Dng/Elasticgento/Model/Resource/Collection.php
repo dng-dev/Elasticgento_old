@@ -21,6 +21,13 @@ abstract class Dng_Elasticgento_Model_Resource_Collection extends Varien_Data_Co
     protected $_storeId;
 
     /**
+     * Entity object to define collection's attributes
+     *
+     * @var Mage_Eav_Model_Entity_Abstract
+     */
+    protected $_entity;
+
+    /**
      * Collection constructor
      *
      * @param Mage_Core_Model_Resource_Abstract $resource
@@ -29,6 +36,56 @@ abstract class Dng_Elasticgento_Model_Resource_Collection extends Varien_Data_Co
     {
         $this->_construct();
         $this->setConnection($this->getEntity()->getReadConnection());
+    }
+
+    /**
+     * resource collection initalization
+     *
+     * @param string $model
+     * @return Dng_Elasticgento_Model_Resource_Collection_Abstract
+     */
+    protected function _init($model, $entityModel = null)
+    {
+        $this->setItemObjectClass(Mage::getConfig()->getModelClassName($model));
+        if ($entityModel === null) {
+            $entityModel = $model;
+        }
+        $entity = Mage::getResourceSingleton($entityModel);
+        $this->setEntity($entity);
+
+        return $this;
+    }
+
+    /**
+     * Set entity to use for attributes
+     *
+     * @param Mage_Eav_Model_Entity_Abstract $entity
+     * @throws Mage_Eav_Exception
+     * @return Mage_Eav_Model_Entity_Collection_Abstract
+     */
+    public function setEntity($entity)
+    {
+        if ($entity instanceof Mage_Eav_Model_Entity_Abstract) {
+            $this->_entity = $entity;
+        } elseif (is_string($entity) || $entity instanceof Mage_Core_Model_Config_Element) {
+            $this->_entity = Mage::getModel('eav/entity')->setType($entity);
+        } else {
+            throw Mage::exception('Mage_Eav', Mage::helper('eav')->__('Invalid entity supplied: %s', print_r($entity, 1)));
+        }
+        return $this;
+    }
+
+    /**
+     * Get collection's entity object
+     *
+     * @return Mage_Eav_Model_Entity_Abstract
+     */
+    public function getEntity()
+    {
+        if (empty($this->_entity)) {
+            throw Mage::exception('Mage_Eav', Mage::helper('eav')->__('Entity is not initialized'));
+        }
+        return $this->_entity;
     }
 
     /**
