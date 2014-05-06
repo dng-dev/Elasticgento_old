@@ -53,11 +53,11 @@ abstract class Dng_Elasticgento_Model_Abstract_Mappings
     protected $_dynamicTemplates = array();
 
     /**
-     * already created mappings as array cache by store id
+     * mapping data
      *
      * @var array
      */
-    protected $_MappingsCache = array();
+    protected $_mappings = null;
 
     /**
      * Retrieve entity type
@@ -191,13 +191,53 @@ abstract class Dng_Elasticgento_Model_Abstract_Mappings
                 )
                 ->where('main_table.entity_type_id = :entity_type_id');
             $result = $resource->getConnection('core_read')->fetchAll($select, array('entity_type_id' => $this->getEntityTypeId()));
-            Mage::getSingleton('eav/config')
-                ->importAttributesData($this->getEntityType(), $result);
+            Mage::getSingleton('eav/config')->importAttributesData($this->getEntityType(), $result);
             foreach ($result as $data) {
                 $this->_attributeCodes[$data['attribute_id']] = $data['attribute_code'];
             }
             unset($result);
         }
         return $this->_attributeCodes;
+    }
+
+    /**
+     * get an array of dynamic field definitions
+     *
+     * @return array
+     */
+    public function getDynamicTemplates()
+    {
+        return $this->_dynamicTemplates;
+    }
+
+    /**
+     * get mapping from SQL to Elasticsearch
+     * @return array
+     */
+    public function getMappings()
+    {
+        if (null === $this->_MappingsCache) {
+            $this->_createMappings();
+        }
+
+        return $this->_mappings;
+    }
+
+    /**
+     * default mappings like entity_id etc
+     *
+     * @return array
+     */
+    protected function getDefaultMappings()
+    {
+        return array();
+    }
+
+    /**
+     * generate mapping from attributes
+     */
+    private function _createMappings()
+    {
+        $this->_mappings = $this->getDefaultMappings();
     }
 }

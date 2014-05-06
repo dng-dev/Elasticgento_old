@@ -63,4 +63,18 @@ class Dng_Elasticgento_Model_Catalog_Product_Elasticgento_Mappings extends Dng_E
     {
         return Mage_Catalog_Model_Product::ENTITY;
     }
+
+    /**
+     * default mappings like entity_id etc
+     *
+     * @return array
+     */
+    protected function getDefaultMappings()
+    {
+        return array('entity_id' => array('type' => 'integer'),
+            'attribute_set_id' => array('type' => 'integer'),
+            'type_id' => array('type' => 'string', 'index' => 'not_analyzed'),
+            'categories' => array('type' => 'integer'),
+            'anchors' => array('type' => 'integer', 'store' => false));
+    }
 }
