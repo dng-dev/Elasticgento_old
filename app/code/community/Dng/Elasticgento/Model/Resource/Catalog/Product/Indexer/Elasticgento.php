@@ -11,50 +11,6 @@
 class Dng_Elasticgento_Model_Resource_Catalog_Product_Indexer_Elasticgento extends Mage_Index_Model_Resource_Abstract
 {
     /**
-     * index templates for dynamic fields like category data etc.
-     *
-     * @var array
-     */
-    protected $_dynamicTemplates = array(
-        array(
-            'template_price_index' =>
-                array(
-                    "path_match" => 'price_index.price_customer_group_*',
-                    'match' => 'price_customer_group_*',
-                    'mapping' => array(
-                        'type' => 'object',
-                        'properties' => array(
-                            'price' => array('type' => 'double'),
-                            'min_price' => array('type' => 'double'),
-                            'final_price' => array('type' => 'double'),
-                            'max_price' => array('type' => 'double'),
-                            'tier_price' => array('type' => 'double'),
-                            'group_price' => array('type' => 'double')
-                        )
-                    )
-                ),
-        ),
-        array('template_category_sort' =>
-            array(
-                "path_match" => "category_sort.category_*",
-                'match' => 'category_sort',
-                'mapping' => array(
-                    'type' => 'integer'
-                )
-            )
-        ),
-        array('template_link_types' =>
-            array(
-                "path_match" => "product_link.*",
-                'match' => '*',
-                'mapping' => array(
-                    'type' => 'integer'
-                )
-            )
-        )
-    );
-
-    /**
      * Initialize connection
      *
      */
