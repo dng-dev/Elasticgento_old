@@ -32,6 +32,13 @@ abstract class Dng_Elasticgento_Model_Abstract_Mappings
     protected $_entityTypeId;
 
     /**
+     * array of index settings with analyzers etc
+     *
+     * @var array
+     */
+    protected $_settings = null;
+
+    /**
      * array with Attribute codes for index
      *
      * @var array
@@ -130,6 +137,19 @@ abstract class Dng_Elasticgento_Model_Abstract_Mappings
     }
 
     /**
+     * Get setting object
+     *
+     * @return array
+     */
+    protected function _getIndexSettings()
+    {
+        if (null === $this->_settings) {
+            $this->_settings = Mage::getModel('elasticgento/abstract_settings')->setStore($this->getStoreId())->getIndexSettings();
+        }
+        return $this->_settings;
+    }
+
+    /**
      * Retrieve Catalog Entity Type Id
      *
      * @return int
@@ -213,6 +233,7 @@ abstract class Dng_Elasticgento_Model_Abstract_Mappings
     /**
      * get mapping from SQL to Elasticsearch
      * @return array
+     * @todo make it cacheable
      */
     public function getMappings()
     {
@@ -235,9 +256,124 @@ abstract class Dng_Elasticgento_Model_Abstract_Mappings
 
     /**
      * generate mapping from attributes
+     * @todo this code is dirty but works for now
+     * @todo export field mapping for sortable
      */
     private function _createMappings()
     {
+        //get table prefix for field detection
+        $tablePrefix = $this->getEntity()->getEntityTable();
         $this->_mappings = $this->getDefaultMappings();
+        foreach ($this->getAttributes() as $attribute) {
+            /** @var Mage_Eav_Model_Entity_Attribute_Abstract $attribute */
+            $columns = $attribute->getFlatColumns();
+            if (false === isset($columns[$attribute->getAttributeCode()]) || false === is_array($columns) || count($columns) == 0) {
+                $columnType = $attribute->getBackendTable();
+                //replace table prefix
+                $columnType = str_replace(array($tablePrefix, '_', '-'), '', $columnType);
+                $fieldType = $this->_getFieldMappingType($columnType);
+                $this->_mappings[$attribute->getAttributeCode()] = $this->_getFieldMapping($attribute, $fieldType, $attribute->getAttributeCode());
+            } else {
+                foreach ($columns as $fieldName => $column) {
+                    $fieldType = $this->_getFieldMappingType($column['type']);
+                    $this->_mappings[$fieldName] = $this->_getFieldMapping($attribute, $fieldType, $fieldName);
+                }
+            }
+        }
+    }
+
+    /**
+     * get elasticsearch field mapping
+     *
+     * @param $attribute Mage_Eav_Model_Entity_Attribute_Abstract
+     * @param $fieldType
+     * @return array
+     */
+    protected function _getFieldMapping(Mage_Eav_Model_Entity_Attribute_Abstract $attribute, $fieldType, $fieldName)
+    {
+        switch ($fieldType) {
+            case 'date':
+            {
+                $mapping['type'] = 'date';
+                $mapping['format'] = 'yyyy-MM-dd HH:mm:ss||yyyy-MM-dd';
+                break;
+            }
+            case 'string':
+            {
+                //@todo add backend flags for analyzers and so on
+                if (1 == $attribute->getisSearchable() || 1 == $attribute->getisVisibleInAdvancedSearch()) {
+                    $mapping = array(
+                        'type' => 'multi_field',
+                        'fields' => array(
+                            $fieldName => array(
+                                "store" => 'no',
+                                'type' => 'string',
+                                'boost' => $attribute->getSearchWeight()
+                            ),
+                            'untouched' => array(
+                                'type' => 'string',
+                                'index' => 'not_analyzed',
+                            ),
+                        ),
+                    );
+                    //for now we implementing all analyzer
+                    //@todo make multiselect in backend to make analyser selectable
+                    $settings = $this->_getIndexSettings();
+                    foreach (array_keys($settings['analysis']['analyzer']) as $analyzer) {
+                        $mapping['fields'][$analyzer] = array(
+                            'type' => 'string',
+                            'analyzer' => $analyzer,
+                            'boost' => $attribute->getSearchWeight(),
+                        );
+                    }
+                } else {
+                    $mapping = array('type' => 'string', 'index' => 'not_analyzed');
+                }
+                break;
+            }
+            default:
+                {
+                $mapping = array('type' => $fieldType);
+                break;
+                }
+        }
+        return $mapping;
+    }
+
+    /**
+     * get column mapping from sql to elasticsearch fields
+     *
+     * @param $type
+     * @return string
+     * @todo this code is dirty but works for now
+     */
+    protected function _getFieldMappingType($type)
+    {
+        //put not default to top
+        switch (true) {
+            case strpos($type, 'smallint') === 0:
+            case strpos($type, 'tinyint') === 0:
+            case strpos($type, 'int') === 0:
+            {
+                return 'integer';
+
+            }
+            case strpos($type, 'decimal') === 0:
+            {
+                return 'double';
+            }
+            case strpos($type, 'datetime') === 0:
+            case strpos($type, 'timestamp') === 0:
+            {
+                return 'date';
+            }
+            case strpos($type, 'text') === 0:
+            case strpos($type, 'varchar') === 0:
+            case strpos($type, 'char') === 0:
+            default:
+                {
+                return 'string';
+                }
+        }
     }
 }
