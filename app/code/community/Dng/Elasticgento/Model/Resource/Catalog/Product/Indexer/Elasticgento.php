@@ -10,6 +10,28 @@
  */
 class Dng_Elasticgento_Model_Resource_Catalog_Product_Indexer_Elasticgento extends Mage_Index_Model_Resource_Abstract
 {
+
+    /**
+     * Eav Catalog_Product Entity Type Id
+     *
+     * @var int
+     */
+    protected $_entityTypeId;
+
+    /**
+     * Elasticgento client instance
+     *
+     * @var Dng_Elasticgento_Model_Resource_Client
+     */
+    protected $_client = null;
+
+    /**
+     * Flat tables which were prepared
+     *
+     * @var array
+     */
+    protected $_preparedIndexes = array();
+
     /**
      * Initialize connection
      *
@@ -57,6 +79,42 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Indexer_Elasticgento exten
     }
 
     /**
+     * prepare elasticsearch index for store
+     *
+     * @param integer $storeId
+     * @return Dng_Elasticgento_Model_Resource_Catalog_Product_Indexer_Elasticgento
+     * @todo implement alias handling for non blocking reindex
+     */
+    protected function _prepareIndex($storeId)
+    {
+        if (true === isset($this->_preparedIndexes[$storeId])) {
+            return $this;
+        }
+        //handle index creation / deletition
+        $idx = $this->_getClient()->getIndex($storeId);
+        $settings = Mage::getModel('elasticgento/catalog_product_elasticgento_settings')->setStoreId($storeId)->getIndexSettings();
+        if (false === $idx->exists()) {
+            $idx->create($settings);
+        } else {
+            $idx->delete();
+            $idx->create($settings);
+        }
+        //handle type
+        //load settings
+        $typeMappings = Mage::getModel('elasticgento/catalog_product_elasticgento_mappings')->setStoreId($storeId)->getMappings();
+        $dynamicTemplates = Mage::getModel('elasticgento/catalog_product_elasticgento_mappings')->setStoreId($storeId)->getDynamicTemplates();
+        $type = $this->_getClient()->getIndex($storeId)->getType($this->getEntityType());
+        $elasticaMapping = new \Elastica\Type\Mapping($type);
+        $elasticaMapping->setParam('_all', array('enabled' => false));
+        #$elasticaMapping->setParam('dynamic', false);
+        $elasticaMapping->setParam('dynamic_templates', $dynamicTemplates);
+        $elasticaMapping->setProperties($typeMappings);
+        $elasticaMapping->send();
+        $this->_preparedIndexes[$storeId] = true;
+        return $this;
+    }
+
+    /**
      * calculate the ranging steps for a total reindex for each store
      *
      * @param int $storeId
@@ -64,7 +122,7 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Indexer_Elasticgento exten
      *      - from
      *      - to
      */
-    public function getIndexChunks($storeId)
+    protected function _getIndexRangeChunks($storeId)
     {
         $chunksize = Mage::helper('elasticgento/config')->getChunkSize();
         $adapter = $this->_getReadAdapter();
@@ -90,79 +148,45 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Indexer_Elasticgento exten
     }
 
     /**
-     * get prepared Elastica documents
+     * Retrieve Catalog Product Flat helper
      *
-     * @param int $storeId
-     * @param array $productIds update only product(s)
-     * @return array
-     * @todo get Documents from client
+     * @return Mage_Catalog_Helper_Product_Flat
      */
-    public function createDocuments($storeId, $parameters = array())
+    public function getFlatHelper()
     {
-        list($type) = array_keys($parameters);
-        $adapter = $this->_getReadAdapter();
-        $websiteId = (int)Mage::app()->getStore($storeId)->getWebsite()->getId();
-        /* @var $status Mage_Eav_Model_Entity_Attribute */
-        $status = $this->getAttribute('status');
-
-        $fieldList = array('entity_id', 'type_id', 'attribute_set_id');
-        $colsList = array('entity_id', 'type_id', 'attribute_set_id');
-
-        $fields = $this->getIndexMappings($storeId);
-        $bind = array(
-            'website_id' => (int)$websiteId,
-            'store_id' => (int)$storeId,
-            'entity_type_id' => (int)$status->getEntityTypeId(),
-            'attribute_id' => (int)$status->getId()
-        );
-
-        $fieldExpr = $adapter->getCheckSql('t2.value_id > 0', 't2.value', 't1.value');
-        $select = $this->_getReadAdapter()->select()
-            ->from(array('e' => $this->getTable('catalog/product')), $colsList)
-            ->join(
-                array('wp' => $this->getTable('catalog/product_website')),
-                'e.entity_id = wp.product_id AND wp.website_id = :website_id',
-                array())
-            ->joinLeft(
-                array('t1' => $status->getBackend()->getTable()),
-                'e.entity_id = t1.entity_id',
-                array())
-            ->joinLeft(
-                array('t2' => $status->getBackend()->getTable()),
-                't2.entity_id = t1.entity_id'
-                . ' AND t1.entity_type_id = t2.entity_type_id'
-                . ' AND t1.attribute_id = t2.attribute_id'
-                . ' AND t2.store_id = :store_id',
-                array())
-            ->where('t1.entity_type_id = :entity_type_id')
-            ->where('t1.attribute_id = :attribute_id')
-            ->where('t1.store_id = ?', Mage_Core_Model_App::ADMIN_STORE_ID)
-            ->where("{$fieldExpr} = ?", Mage_Catalog_Model_Product_Status::STATUS_ENABLED);
-        foreach ($this->getAttributes() as $attributeCode => $attribute) {
-            /** @var $attribute Mage_Eav_Model_Entity_Attribute */
-            if ($attribute->getBackend()->getType() == 'static') {
-                if (false === isset($fields[$attributeCode])) {
-                    continue;
-                }
-                $fieldList[] = $attributeCode;
-                $select->columns($attributeCode, 'e');
-            }
-        }
-        if ($type !== 'range') {
-            $select->where('e.entity_id BETWEEN ? AND ?', (int)$parameters['from'], (int)$parameters['to']);
-        }
-        $documents = array();
-        //loop over result and create documents
-        foreach ($adapter->query($select, $bind)->fetchAll() as $entity) {
-            $document = new Elastica\Document($this->getEntityType() . '_' . $entity['entity_id'], $entity);
-            //enable autocreation on update
-            $document->setDocAsUpsert(true);
-            $documents[$entity['entity_id']] = $document;
-        }
-        return $documents;
+        return Mage::helper('catalog/product_flat');
     }
+
     /**
-     * Transactional rebuild Catalog Product Flat Data
+     * rebuild elasticgento catalog product data
+     *
+     * @param Mage_Core_Model_Store|int $store
+     * @return Dng_Elasticgento_Model_Resource_Catalog_Product_Indexer_Elasticgento
+     */
+    public function rebuild($store = null)
+    {
+        if ($store === null) {
+            if (true === is_array($store)) {
+                foreach (Mage::app()->getStores() as $store) {
+                    $this->rebuild($store->getId());
+                }
+            }
+            return $this;
+        }
+        //check store exists
+        $storeId = (int)Mage::app()->getStore($store)->getId();
+        $this->_prepareIndex($storeId);
+        //get reindex chunks on catalog_product primary key because in is faster then working with limits
+        $chunks = $this->_getIndexRangeChunks($storeId);
+
+
+        $flag = $this->getFlatHelper()->getFlag();
+        $flag->setIsBuilt(true)->setStoreBuilt($storeId, true)->save();
+        return $this;
+    }
+
+    /**
+     * rebuild elasticgento catalog product data for all stores
      *
      * @return Mage_Catalog_Model_Resource_Product_Flat_Indexer
      */
@@ -170,11 +194,14 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Indexer_Elasticgento exten
     {
         foreach (Mage::app()->getStores() as $storeId => $store) {
             try {
-                #$this->rebuild($store);
-                var_dump(xdebug_time_index());
-                #   $this->commit();
+                if (true === function_exists('xdebug_time_index')) {
+                    $timeStart = xdebug_time_index();
+                }
+                $this->rebuild($store);
+                if (true === function_exists('xdebug_time_index')) {
+                    var_dump(xdebug_time_index() - $timeStart);
+                }
             } catch (Exception $e) {
-                #   $this->rollBack();
                 throw $e;
             }
         }
