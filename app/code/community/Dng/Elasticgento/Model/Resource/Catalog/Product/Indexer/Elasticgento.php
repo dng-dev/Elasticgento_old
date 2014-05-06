@@ -175,6 +175,7 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Indexer_Elasticgento exten
         }
         //check store exists
         $storeId = (int)Mage::app()->getStore($store)->getId();
+        //prepare index and mappings
         $this->_prepareIndex($storeId);
         //get reindex chunks on catalog_product primary key because in is faster then working with limits
         $chunks = $this->_getIndexRangeChunks($storeId);
