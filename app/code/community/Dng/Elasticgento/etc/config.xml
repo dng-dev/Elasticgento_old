@@ -31,6 +31,9 @@
                 <class>Dng_Elasticgento_Model</class>
                 <resourceModel>elasticgento_resource</resourceModel>
             </elasticgento>
+            <elasticgento_resource>
+                <class>Dng_Elasticgento_Model_Resource</class>
+            </elasticgento_resource>
         </models>
         <resources>
             <elasticgento_setup>

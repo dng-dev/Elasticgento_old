@@ -20,6 +20,30 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Indexer_Elasticgento exten
     }
 
     /**
+     * Retrieve entity type
+     *
+     * @return string
+     */
+    public function getEntityType()
+    {
+        return Mage_Catalog_Model_Product::ENTITY;
+    }
+
+    /**
+     * Retrieve Catalog Entity Type Id
+     *
+     * @return int
+     */
+    public function getEntityTypeId()
+    {
+        if ($this->_entityTypeId === null) {
+            $this->_entityTypeId = Mage::getResourceModel('catalog/config')
+                ->getEntityTypeId();
+        }
+        return $this->_entityTypeId;
+    }
+
+    /**
      * get elasticsearch client instance
      *
      * @return Dng_Elasticgento_Model_Resource_Client
@@ -136,5 +160,24 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Indexer_Elasticgento exten
             $documents[$entity['entity_id']] = $document;
         }
         return $documents;
+    }
+    /**
+     * Transactional rebuild Catalog Product Flat Data
+     *
+     * @return Mage_Catalog_Model_Resource_Product_Flat_Indexer
+     */
+    public function reindexAll()
+    {
+        foreach (Mage::app()->getStores() as $storeId => $store) {
+            try {
+                #$this->rebuild($store);
+                var_dump(xdebug_time_index());
+                #   $this->commit();
+            } catch (Exception $e) {
+                #   $this->rollBack();
+                throw $e;
+            }
+        }
+        return $this;
     }
 }
