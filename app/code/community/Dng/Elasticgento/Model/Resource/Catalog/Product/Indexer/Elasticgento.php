@@ -412,6 +412,82 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Indexer_Elasticgento exten
     }
 
     /**
+     * add product configurable relation to documents
+     *
+     * @param $documents
+     * @return mixed
+     */
+    private function _addSuperLinkData($documents)
+    {
+        $adapter = $this->_getReadAdapter();
+        $select = $adapter->select()
+            ->from($this->getTable('catalog/product_super_link'),
+                array('entity_id' => 'parent_id',
+                    'product_ids' => new Zend_Db_Expr('group_concat(DISTINCT product_id SEPARATOR \',\')'))
+            )
+            ->group('entity_id');
+        $select->where('parent_id IN (?)', array_map('intval', array_keys($documents)));
+        //order by null because sorting is done within group by
+        $select->order(new Zend_Db_Expr('NULL'));
+        foreach ($adapter->query($select)->fetchAll() as $link) {
+            if (true === isset($documents[$link['entity_id']])) {
+                $documents[$link['entity_id']]->set('product_link.configurable', array_map('intval', explode(',', $link['product_ids'])));
+            }
+        }
+        return $documents;
+    }
+
+    /**
+     * add product relation data to documents
+     *
+     * @param int $storeId
+     * @param array $documents
+     * @return array
+     */
+    private function _addLinkData($documents)
+    {
+        $adapter = $this->_getReadAdapter();
+        $select = $adapter->select()
+            ->from($this->getTable('catalog/product_link'),
+                array('entity_id' => 'product_id',
+                    'link_type_id',
+                    'product_ids' => new Zend_Db_Expr('group_concat(DISTINCT linked_product_id SEPARATOR \';\')'))
+            );
+        $select->where('product_id IN (?)', array_map('intval', array_keys($documents)));
+        $select->group('entity_id');
+        $select->group('link_type_id');
+        //order by null because sorting is done within group by
+        $select->order(new Zend_Db_Expr('NULL'));
+        foreach ($adapter->query($select)->fetchAll() as $link) {
+            if (true === isset($documents[$link['entity_id']])) {
+                switch ((int)$link['link_type_id']) {
+                    case 1:
+                    {
+                        $documents[$link['entity_id']]->set('product_link.related', array_map('intval', explode(';', $link['product_ids'])));
+                        break;
+                    }
+                    case 3:
+                    {
+                        $documents[$link['entity_id']]->set('product_link.grouped', array_map('intval', explode(';', $link['product_ids'])));
+                        break;
+                    }
+                    case 4:
+                    {
+                        $documents[$link['entity_id']]->set('product_link.upsell', array_map('intval', explode(';', $link['product_ids'])));
+                        break;
+                    }
+                    case 5:
+                    {
+                        $documents[$link['entity_id']]->set('product_link.crosssell', array_map('intval', explode(';', $link['product_ids'])));
+                        break;
+                    }
+                }
+            }
+        }
+        return $documents;
+    }
+
+    /**
      * get all attributes by store scope
      *
      * @param integer $storeId
@@ -508,6 +584,9 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Indexer_Elasticgento exten
             }
             $documents = $this->_addPriceData($storeId, $documents);
             $documents = $this->_addCategoryData($storeId, $documents);
+            $documents = $this->_addSuperLinkData($documents);
+            $documents = $this->_addLinkData($documents);
+
             //finally send documents to the index
             $this->_getClient()->getIndex($storeId)->getType($this->getEntityType())->updateDocuments($documents);
         }
