@@ -40,6 +40,13 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Collection extends Dng_Ela
     protected $_addUrlRewrite = false;
 
     /**
+     * attribute set ids in current collection
+     *
+     * @var null
+     */
+    protected $_setIds = null;
+
+    /**
      * Catalog factory instance
      *
      * @var Mage_Catalog_Model_Factory
@@ -75,10 +82,10 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Collection extends Dng_Ela
                 $filter->addFilter($filterCategory);
                 $filter->addFilter($filterAnchors);
                 $filter->setName('category');
-                $this->_attributeFilters['category'] = $filter;
+                $this->_queryAttributeFilters['category'] = $filter;
             } else {
                 $filterCategory->setName('category');
-                $this->_attributeFilters['category'] = $filterCategory;
+                $this->_queryAttributeFilters['category'] = $filterCategory;
             }
         }
         //apply visibility filters
@@ -91,7 +98,7 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Collection extends Dng_Ela
                     $visibilityFilters->addFilter($visibilityFilter);
                 }
                 $visibilityFilters->setName('visibility');
-                $this->_attributeFilters['visibility'] = $visibilityFilters;
+                $this->_queryAttributeFilters['visibility'] = $visibilityFilters;
             }
         }
         return parent::_renderFiltersBefore();
@@ -216,13 +223,17 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Collection extends Dng_Ela
         if (false == $this->isLoaded()) {
             $tmpSize = $this->getPageSize();
             $this->setPageSize(0);
-            $this->addFacetCondition('attribute_set_id');
+            $facet = new \Elastica\Facet\Terms('attribute_set_id');
+            $facet->setField('attribute_set_id');
+            $facet->setSize(10);
+            $this->addFacet($facet);
             $this->load();
+            $this->removeFacet($facet->getName());
             $this->setPageSize($tmpSize);
+            $this->_setIsLoaded(false);
         }
-        return array();
         if (0 == count($this->_setIds)) {
-            foreach ($this->_facetsResponse['attribute_set_id']['terms'] as $term) {
+            foreach ($this->_responseFacets['attribute_set_id']['terms'] as $term) {
                 $this->_setIds[$term['term']] = $term['term'];
             }
         }

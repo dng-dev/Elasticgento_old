@@ -51,7 +51,21 @@ abstract class Dng_Elasticgento_Model_Resource_Collection extends Mage_Eav_Model
      *
      * @var array
      */
-    protected $_attributeFilters = array();
+    protected $_queryAttributeFilters = array();
+
+    /**
+     * array with facets to merge
+     *
+     * @var array
+     */
+    protected $_queryFacets = array();
+
+    /**
+     * array with facets to merge
+     *
+     * @var array
+     */
+    protected $_responseFacets = array();
 
     /**
      * extra attributes to automaticly map
@@ -204,7 +218,7 @@ abstract class Dng_Elasticgento_Model_Resource_Collection extends Mage_Eav_Model
     protected function _renderFilters()
     {
         $this->_queryFilter = new Elastica\Filter\BoolAnd();
-        foreach ($this->_attributeFilters as $filter) {
+        foreach ($this->_queryAttributeFilters as $filter) {
             $this->_queryFilter->addFilter($filter);
         }
         return $this;
@@ -275,6 +289,9 @@ abstract class Dng_Elasticgento_Model_Resource_Collection extends Mage_Eav_Model
      */
     protected function _renderFacets()
     {
+        foreach($this->_queryFacets as $facet){
+            $this->_query->addFacet($facet);
+        }
         return $this;
     }
 
@@ -299,12 +316,26 @@ abstract class Dng_Elasticgento_Model_Resource_Collection extends Mage_Eav_Model
     }
 
     /**
-     * add facet condition
+     * add facet to collection
      *
-     * @param Mage_Catalog_Model_Category $category
+     * @param AbstractFacet $facet
+     * @return Dng_Elasticgento_Model_Resource_Collection
      */
-    public function addFacetCondition()
+    public function addFacet($facet)
     {
+        $this->_queryFacets[$facet->getName()] = $facet;
+        return $this;
+    }
+
+    /**
+     * add facet to collection
+     *
+     * @param AbstractFacet $facet
+     * @return Dng_Elasticgento_Model_Resource_Collection
+     */
+    public function removeFacet($name)
+    {
+        unset($this->_queryFacets[$name]);
         return $this;
     }
 
@@ -362,17 +393,37 @@ abstract class Dng_Elasticgento_Model_Resource_Collection extends Mage_Eav_Model
         $this->_query->setSize($this->getPageSize());
         $type = $this->getAdapter()->getIndex($this->_storeId)->getType($this->getEntity()->getType());
         try {
-//            var_dump(json_encode($this->_query->toArray()));
+            var_dump(json_encode($this->_query->toArray()));
             $results = $type->search($this->_query);
         } catch (Exception $e) {
 //            var_dump($e->getMessage());
         }
+        $this->_responseFacets = $results->getFacets();
         Varien_Profiler::stop('__ELASTICGENTO_QUERY__');
         $this->_afterLoad();
         Mage::dispatchEvent('elasticgento_collection_abstract_load_after', array('collection' => $this));
         Varien_Profiler::stop('__EAV_COLLECTION_AFTER_LOAD__');
         $this->_setIsLoaded();
         return $this;
+    }
+
+    /**
+     * get Facet data
+     *
+     * @param $field
+     * @return array
+     */
+    public function getFacetData($field)
+    {
+        $data = array();
+        if (true === isset($this->_responseFacets[$field])) {
+            if (true === isset($this->_responseFacets[$field]['terms'])) {
+                foreach ($this->_responseFacets[$field]['terms'] as $facet) {
+                    $data[$facet['term']] = $facet['count'];
+                }
+            }
+        }
+        return $data;
     }
 
     /**
