@@ -193,9 +193,73 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Indexer_Elasticgento exten
         return $documents;
     }
 
+    /**
+     * add product price data to documents
+     *
+     * @param int $storeId
+     * @param array $documents
+     * @return array
+     */
+    private function _addPriceData($storeId, $documents)
+    {
+        $adapter = $this->_getReadAdapter();
+        //we need the website id
+        $websiteId = (int)Mage::app()->getStore($storeId)->getWebsite()->getId();
+        $select = $adapter->select()
+            ->from($this->getTable('catalog/product_index_price'),
+                array(
+                    'entity_id',
+                    'customer_group_id',
+                    'website_id', 'price',
+                    'final_price',
+                    'min_price',
+                    'max_price',
+                    'tier_price',
+                    'group_price'
+                )
+            );
+        //entity id must be first one becaus its in primary key and faster that regular index
+        $select->where('entity_id IN (?)', array_map('intval', array_keys($documents)));
+        $select->where('website_id = ?', (int)$websiteId);
+        //order by null to avoid file sort on disc
+        $select->order(new Zend_Db_Expr('NULL'));
+        $tmp = array();
+        //prebuild index data
+        foreach ($adapter->query($select)->fetchAll() as $price) {
+            if (false === isset($tmp[$price['entity_id']])) {
+                $tmp[$price['entity_id']] = array();
+            }
+            $tmp[$price['entity_id']]['price_customer_group_' . $price['customer_group_id']] = array(
+                'price' => (float)$price['price'],
+                'final_price' => (float)$price['final_price'],
+                'min_price' => (float)$price['min_price'],
+                'max_price' => (float)$price['max_price'],
+                'tier_price' => (float)$price['tier_price'],
+                'group_price' => (float)$price['group_price']
+            );
+        }
+        foreach ($tmp as $entity_id => $priceIndex) {
+            $documents[$entity_id]->set('price_index', $priceIndex);
+        }
+        return $documents;
+    }
+
     public function getAttributes($storeId)
     {
         return Mage::getModel('elasticgento/catalog_product_elasticgento_mappings')->setStoreId($storeId)->getAttributes();
+    }
+
+    /**
+     * Update events observer attributes
+     *
+     * @param int $storeId
+     */
+    public function updateEventAttributes($storeId = null)
+    {
+        Mage::dispatchEvent('catalog_product_flat_rebuild', array(
+            'store_id' => $storeId,
+            'table' => $this->_getClient()->getIndexName($storeId)
+        ));
     }
 
     /**
@@ -233,6 +297,7 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Indexer_Elasticgento exten
         //loop over chunks
         foreach ($chunks as $chunk) {
             $documents = $this->_getDocuments($storeId, array('range' => $chunk));
+            $documents = $this->_addPriceData($storeId, $documents);
             //finally send documents to the index
             $this->_getClient()->getIndex($storeId)->getType($this->getEntityType())->updateDocuments($documents);
         }
