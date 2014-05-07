@@ -26,6 +26,27 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Indexer_Elasticgento exten
     protected $_client = null;
 
     /**
+     * attributes array key is store id
+     *
+     * @var array
+     */
+    protected $_attributes = array();
+
+    /**
+     * mapping object array key is store id
+     *
+     * @var array
+     */
+    protected $_mapping = array();
+
+    /**
+     * mappings array key is store id
+     *
+     * @var array
+     */
+    protected $_mappings = array();
+
+    /**
      * Flat tables which were prepared
      *
      * @var array
@@ -79,6 +100,34 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Indexer_Elasticgento exten
     }
 
     /**
+     * get instance of mapping model by store scope
+     *
+     * @param integer $storeId
+     * @return Dng_Elasticgento_Model_Catalog_Product_Elasticgento_Mappings
+     */
+    protected function _getMappingModel($storeId)
+    {
+        if (false === isset($this->_mapping[$storeId])) {
+            $this->_mapping[$storeId] = Mage::getModel('elasticgento/catalog_product_elasticgento_mappings')->setStoreId($storeId);
+        }
+        return $this->_mapping[$storeId];
+    }
+
+    /**
+     * get index mapping by store store scope
+     *
+     * @param integer $storeId
+     * @return array
+     */
+    protected function getMappings($storeId)
+    {
+        if (false === isset($this->_mappings[$storeId])) {
+            $this->_mappings[$storeId] = $this->_getMappingModel($storeId)->getMappings();
+        }
+        return $this->_mappings[$storeId];
+    }
+
+    /**
      * prepare elasticsearch index for store
      *
      * @param integer $storeId
@@ -101,8 +150,8 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Indexer_Elasticgento exten
         }
         //handle type
         //load settings
-        $typeMappings = Mage::getModel('elasticgento/catalog_product_elasticgento_mappings')->setStoreId($storeId)->getMappings();
-        $dynamicTemplates = Mage::getModel('elasticgento/catalog_product_elasticgento_mappings')->setStoreId($storeId)->getDynamicTemplates();
+        $typeMappings = $this->getMappings($storeId);
+        $dynamicTemplates = $this->_getMappingModel($storeId)->getDynamicTemplates();
         $type = $this->_getClient()->getIndex($storeId)->getType($this->getEntityType());
         $elasticaMapping = new \Elastica\Type\Mapping($type);
         $elasticaMapping->setParam('_all', array('enabled' => false));
@@ -148,7 +197,7 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Indexer_Elasticgento exten
     }
 
     /**
-     * get Elastica documents
+     * get Elastica documents for store scope
      *
      * @param int $storeId
      * @param array $productIds update only product(s)
@@ -162,7 +211,7 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Indexer_Elasticgento exten
         $fieldList = array('entity_id', 'type_id', 'attribute_set_id');
         $colsList = array('entity_id', 'type_id', 'attribute_set_id');
 
-        $fields = Mage::getModel('elasticgento/catalog_product_elasticgento_mappings')->setStoreId($storeId)->getMappings();
+        $fields = $this->getMappings($storeId);
         $select = $this->_getReadAdapter()->select()
             ->from(array('e' => $this->getTable('catalog/product')), $colsList)
             ->join(
@@ -192,6 +241,71 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Indexer_Elasticgento exten
         }
         return $documents;
     }
+
+    /**
+     * add product eav Attribute to document
+     *
+     * @param int $storeId
+     * @param Mage_Eav_Model_Entity_Attribute $attribute
+     * @param array $documents
+     * @return array
+     */
+    public function _updateAttribute($storeId, $attribute, $documents = null)
+    {
+        $fields = $this->getMappings($storeId);
+        $adapter = $this->_getReadAdapter();
+
+        if ($attribute->getBackend()->getType() == 'static') {
+            var_dump('not implemented yet');
+            return $this;
+            if (false === isset($describe[$attribute->getAttributeCode()])) {
+                return $this;
+            }
+
+            $select = $adapter->select()
+                ->join(
+                    array('main_table' => $this->getTable('catalog/product')),
+                    'main_table.entity_id = e.entity_id',
+                    array($attribute->getAttributeCode() => 'main_table.' . $attribute->getAttributeCode())
+                );
+            $select->where('main_table.entity_id IN(?)', array_map('intval', array_keys($documents)));
+
+            $sql = $select->crossUpdateFromSelect(array('e' => $flatTableName));
+            var_dump($sql);
+            die();
+            $adapter->query($sql);
+        } else {
+            //non static attributes
+            $columns = $attribute->getFlatColumns();
+            if (!$columns) {
+                return $this;
+            }
+            foreach (array_keys($columns) as $columnName) {
+                if (false === isset($fields[$columnName])) {
+                    return $this;
+                }
+            }
+            $select = $attribute->getFlatUpdateSelect($storeId);
+            $select->from(array('e' => $this->getTable('catalog/product')), 'entity_id');
+            if ($select instanceof Varien_Db_Select) {
+                $select->where('e.entity_id IN(?)', array_map('intval', array_keys($documents)));
+                foreach ($adapter->query($select)->fetchAll() as $data) {
+                    $documentId = $data['entity_id'];
+                    //remove entity id Field
+                    unset($data['entity_id']);
+                    if (true === isset($documents[$documentId])) {
+                        if (true === is_array($data) && count($data) > 0) {
+                            foreach ($data as $field => $value) {
+                                $documents[$documentId]->set($field, $value);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return $documents;
+    }
+
 
     /**
      * add product price data to documents
@@ -244,9 +358,45 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Indexer_Elasticgento exten
         return $documents;
     }
 
+    /**
+     * get all attributes by store scope
+     *
+     * @param integer $storeId
+     * @return mixed
+     */
     public function getAttributes($storeId)
     {
-        return Mage::getModel('elasticgento/catalog_product_elasticgento_mappings')->setStoreId($storeId)->getAttributes();
+        if (false === isset($this->_attributes[$storeId])) {
+            $this->_attributes[$storeId] = Mage::getModel('elasticgento/catalog_product_elasticgento_mappings')->setStoreId($storeId)->getAttributes();
+        }
+        return $this->_attributes[$storeId];
+    }
+
+    /**
+     * get specific attribute by code and store scope
+     *
+     * @param integer $storeId
+     * @param string $attributeCode
+     * @return mixed
+     */
+    public function getAttribute($storeId, $attributeCode)
+    {
+        $attributes = $this->getAttributes($storeId);
+        if (!isset($attributes[$attributeCode])) {
+            $attribute = Mage::getModel('catalog/resource_eav_attribute')
+                ->loadByCode($this->getEntityTypeId(), $attributeCode);
+            if (!$attribute->getId()) {
+                Mage::throwException(Mage::helper('catalog')->__('Invalid attribute %s', $attributeCode));
+            }
+            $entity = Mage::getSingleton('eav/config')
+                ->getEntityType($this->getEntityType())
+                ->getEntity();
+            $attribute->setEntity($entity);
+
+            return $attribute;
+        }
+
+        return $attributes[$attributeCode];
     }
 
     /**
@@ -297,6 +447,12 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Indexer_Elasticgento exten
         //loop over chunks
         foreach ($chunks as $chunk) {
             $documents = $this->_getDocuments($storeId, array('range' => $chunk));
+            foreach ($this->getAttributes($storeId) as $attribute) {
+                /* @var $attribute Mage_Eav_Model_Entity_Attribute */
+                if ($attribute->getBackend()->getType() != 'static') {
+                    $this->_updateAttribute($storeId, $attribute, $documents);
+                }
+            }
             $documents = $this->_addPriceData($storeId, $documents);
             //finally send documents to the index
             $this->_getClient()->getIndex($storeId)->getType($this->getEntityType())->updateDocuments($documents);
