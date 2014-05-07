@@ -289,7 +289,7 @@ abstract class Dng_Elasticgento_Model_Resource_Collection extends Mage_Eav_Model
      */
     protected function _renderFacets()
     {
-        foreach($this->_queryFacets as $facet){
+        foreach ($this->_queryFacets as $facet) {
             $this->_query->addFacet($facet);
         }
         return $this;
@@ -336,6 +336,33 @@ abstract class Dng_Elasticgento_Model_Resource_Collection extends Mage_Eav_Model
     public function removeFacet($name)
     {
         unset($this->_queryFacets[$name]);
+        return $this;
+    }
+
+    /**
+     * @param array|int|Mage_Eav_Model_Entity_Attribute_Interface|string $attribute
+     * @param null $condition
+     * @return Mage_Eav_Model_Entity_Collection_Abstract|void
+     */
+    public function addAttributeToFilter($attribute, $condition = NULL, $joinType = 'inner')
+    {
+        list($operator, $value) = each($condition);
+
+        switch ($operator) {
+            case 'eq':
+            {
+                $this->_queryAttributeFilters[$attribute] = new Elastica\Filter\Term(array($attribute => $value));
+                break;
+            }
+            case 'in':
+            {
+                #var_dump($value);
+                #$filter = new Elastica\Filter\BoolOr();
+                #foreach($value as $param)
+                #$this->_filterAttributes[] = new Elastica\Filter\Term(array($attribute => $value));
+                break;
+            }
+        }
         return $this;
     }
 
@@ -393,13 +420,43 @@ abstract class Dng_Elasticgento_Model_Resource_Collection extends Mage_Eav_Model
         $this->_query->setSize($this->getPageSize());
         $type = $this->getAdapter()->getIndex($this->_storeId)->getType($this->getEntity()->getType());
         try {
-            var_dump(json_encode($this->_query->toArray()));
-            $results = $type->search($this->_query);
+            #var_dump(json_encode($this->_query->toArray()));
+            $result = $type->search($this->_query);
         } catch (Exception $e) {
 //            var_dump($e->getMessage());
         }
-        $this->_responseFacets = $results->getFacets();
+        Varien_Profiler::start('__ELASTICGENTO_HANDLE_RESPONSE__');
+        $this->_responseFacets = $result->getFacets();
         Varien_Profiler::stop('__ELASTICGENTO_QUERY__');
+
+        foreach ($result->getResults() as $item) {
+            /** @var $item Elastica\Result */
+            $data = $item->getSource();
+            ksort($data);
+            /** @var Mage_Catalog_Model_Product $object */
+            $object = $this->getNewEmptyItem();
+            foreach ($data as $field => $value) {
+                if (false === isset($data[$field . '_value'])) {
+                    $object->setData($field, $value);
+                } elseif (substr($field, -6) === '_value') {
+                    $object->setData(str_replace('_value', '', $field), $value);
+                }
+            }
+            $object->setData('is_salable',true);
+            $object->addData($data['price_index']['price_customer_group_0']);
+            $this->addItem($object);
+            if (isset($this->_itemsById[$object->getId()])) {
+                $this->_itemsById[$object->getId()][] = $object;
+            } else {
+                $this->_itemsById[$object->getId()] = array($object);
+            }
+        }
+        foreach ($this->_items as $item) {
+            $item->setOrigData();
+        }
+
+        $this->_totalRecords = $result->getTotalHits();
+        Varien_Profiler::stop('__ELASTICGENTO_HANDLE_RESPONSE__');
         $this->_afterLoad();
         Mage::dispatchEvent('elasticgento_collection_abstract_load_after', array('collection' => $this));
         Varien_Profiler::stop('__EAV_COLLECTION_AFTER_LOAD__');
