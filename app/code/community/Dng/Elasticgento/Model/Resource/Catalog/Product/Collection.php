@@ -57,6 +57,48 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Collection extends Dng_Ela
     }
 
     /**
+     * @return Dng_Elasticgento_Model_Resource_Collection
+     */
+    protected function _renderFiltersBefore()
+    {
+        //apply category filters
+        if (true === isset($this->_productLimitationFilters['category_id']) && (int)$this->_productLimitationFilters['category_id'] > 0) {
+            //check if category is anchor
+            if (false === isset($this->_productLimitationFilters['category_is_anchor'])) {
+                $filter = new Elastica\Filter\BoolOr();
+                $filterAnchors = new Elastica\Filter\Term();
+                $filterAnchors->setTerm('anchors', $this->_productLimitationFilters['category_id']);
+            }
+            $filterCategory = new Elastica\Filter\Term();
+            $filterCategory->setTerm('categories', $this->_productLimitationFilters['category_id']);
+            if (false === isset($this->_productLimitationFilters['category_is_anchor'])) {
+                $filter->addFilter($filterCategory);
+                $filter->addFilter($filterAnchors);
+                $filter->setName('category');
+                $this->_attributeFilters['category'] = $filter;
+            } else {
+                $filterCategory->setName('category');
+                $this->_attributeFilters['category'] = $filterCategory;
+            }
+        }
+        //apply visibility filters
+        if (true === isset($this->_productLimitationFilters['visibility'])) {
+            if (true === is_array($this->_productLimitationFilters['visibility'])) {
+                $visibilityFilters = new Elastica\Filter\BoolOr();
+                foreach ($this->_productLimitationFilters['visibility'] as $visibility) {
+                    $visibilityFilter = new Elastica\Filter\Term();
+                    $visibilityFilter->setTerm('visibility', $visibility);
+                    $visibilityFilters->addFilter($visibilityFilter);
+                }
+                $visibilityFilters->setName('visibility');
+                $this->_attributeFilters['visibility'] = $visibilityFilters;
+            }
+        }
+        return parent::_renderFiltersBefore();
+    }
+
+
+    /**
      * Add minimal price data to result
      *
      * @return Dng_Elasticgento_Model_Resource_Catalog_Product_Collection
@@ -143,16 +185,42 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Collection extends Dng_Ela
     }
 
     /**
+     * add category filter to collection
+     *
+     * @param Mage_Catalog_Model_Category $category
+     */
+    public function addCategoryFilter(Mage_Catalog_Model_Category $category)
+    {
+        $this->_productLimitationFilters['category_id'] = $category->getId();
+        if ($category->getIsAnchor() == 1) {
+            unset($this->_productLimitationFilters['category_is_anchor']);
+        } else {
+            $this->_productLimitationFilters['category_is_anchor'] = 1;
+        }
+        $this->_fieldMap['position'] = 'category_sort.category_' . $category->getId();
+        return $this;
+    }
+
+    public function getFacetedData()
+    {
+        return array();
+    }
+
+    /**
      * get attribute sets for current collection
      *
      * @return mixed
      */
     public function getSetIds()
     {
-        return array();
         if (false == $this->isLoaded()) {
+            $tmpSize = $this->getPageSize();
+            $this->setPageSize(0);
+            $this->addFacetCondition('attribute_set_id');
             $this->load();
+            $this->setPageSize($tmpSize);
         }
+        return array();
         if (0 == count($this->_setIds)) {
             foreach ($this->_facetsResponse['attribute_set_id']['terms'] as $term) {
                 $this->_setIds[$term['term']] = $term['term'];

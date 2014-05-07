@@ -33,6 +33,27 @@ abstract class Dng_Elasticgento_Model_Resource_Collection extends Mage_Eav_Model
     protected $_entity;
 
     /**
+     * query object
+     *
+     * @var Elastica\Query()
+     */
+    protected $_query = null;
+
+    /**
+     * Filter object
+     *
+     * @var Elastica\Filter\BoolAnd
+     */
+    protected $_queryFilter = null;
+
+    /**
+     * array with filters to merge
+     *
+     * @var array
+     */
+    protected $_attributeFilters = array();
+
+    /**
      * extra attributes to automaticly map
      *
      * @var array
@@ -117,8 +138,20 @@ abstract class Dng_Elasticgento_Model_Resource_Collection extends Mage_Eav_Model
     }
 
     /**
+     * @return Dng_Elasticgento_Model_Resource_Client
+     */
+    protected function getAdapter()
+    {
+        if (null === $this->_client) {
+
+            $this->_client = Mage::getResourceModel('elasticgento/client');
+
+        }
+        return $this->_client;
+    }
+
+    /**
      * Init select
-     * this function is overloaded because its done within elasticsearch
      *
      * @return Dng_Elasticgento_Model_Resource_Collection
      */
@@ -140,6 +173,19 @@ abstract class Dng_Elasticgento_Model_Resource_Collection extends Mage_Eav_Model
         return $this->_storeId;
     }
 
+
+    /**
+     * Before load action
+     *
+     * @return Dng_Elasticgento_Model_Resource_Collection
+     */
+    protected function _beforeLoad()
+    {
+        //set up query object
+        $this->_queryFilter = new Elastica\Filter\BoolAnd();
+        return $this;
+    }
+
     /**
      * Hook for operations before rendering filters
      *
@@ -157,6 +203,10 @@ abstract class Dng_Elasticgento_Model_Resource_Collection extends Mage_Eav_Model
      */
     protected function _renderFilters()
     {
+        $this->_queryFilter = new Elastica\Filter\BoolAnd();
+        foreach ($this->_attributeFilters as $filter) {
+            $this->_queryFilter->addFilter($filter);
+        }
         return $this;
     }
 
@@ -166,6 +216,44 @@ abstract class Dng_Elasticgento_Model_Resource_Collection extends Mage_Eav_Model
      * @return Dng_Elasticgento_Model_Resource_Collection
      */
     protected function _renderFiltersAfter()
+    {
+        return $this;
+    }
+
+    /**
+     * Hook for operations before rendering query object
+     *
+     * @return Dng_Elasticgento_Model_Resource_Collection
+     */
+    protected function _renderQueryBefore()
+    {
+        $this->_query = new Elastica\Query();
+        return $this;
+    }
+
+    /**
+     * render collection facets
+     *
+     * @return Dng_Elasticgento_Model_Resource_Collection
+     */
+    protected function _renderQuery()
+    {
+        $queryString = new Elastica\Query\MatchAll();
+        $filteredQuery = new Elastica\Query\Filtered(
+            $queryString,
+            $this->_queryFilter
+
+        );
+        $this->_query->setQuery($filteredQuery);
+        return $this;
+    }
+
+    /**
+     * Hook for operations after query object
+     *
+     * @return Dng_Elasticgento_Model_Resource_Collection
+     */
+    protected function _renderQueryAfter()
     {
         return $this;
     }
@@ -189,7 +277,7 @@ abstract class Dng_Elasticgento_Model_Resource_Collection extends Mage_Eav_Model
     {
         return $this;
     }
-    
+
     /**
      * Hook for operations after rendering facets
      *
@@ -211,12 +299,25 @@ abstract class Dng_Elasticgento_Model_Resource_Collection extends Mage_Eav_Model
     }
 
     /**
+     * add facet condition
+     *
+     * @param Mage_Catalog_Model_Category $category
+     */
+    public function addFacetCondition()
+    {
+        return $this;
+    }
+
+    /**
      * Load collection data into object items
      *
      * @return Dng_Elasticgento_Model_Resource_Collection
      */
     public function load($printQuery = false, $logQuery = false)
     {
+        if ($this->isLoaded()) {
+            return $this;
+        }
         Varien_Profiler::start('__ELASTICGENTO_COLLECTION_BEFORE_LOAD__');
         Mage::dispatchEvent('elasticgento_collection_abstract_load_before', array('collection' => $this));
         $this->_beforeLoad();
@@ -230,6 +331,15 @@ abstract class Dng_Elasticgento_Model_Resource_Collection extends Mage_Eav_Model
         $this->_renderFilters();
         $this->_renderFiltersAfter();
         Varien_Profiler::stop('__ELASTICGENTO_RENDER_FILTERS__');
+
+        /**
+         * render query object
+         */
+        Varien_Profiler::start('__ELASTICGENTO_RENDER_QUERY__');
+        $this->_renderQueryBefore();
+        $this->_renderQuery();
+        $this->_renderQueryAfter();
+        Varien_Profiler::stop('__ELASTICGENTO_RENDER_QUERY__');
 
         /**
          * render orders
@@ -247,10 +357,21 @@ abstract class Dng_Elasticgento_Model_Resource_Collection extends Mage_Eav_Model
         $this->_renderFacetsAfter();
         Varien_Profiler::stop('__ELASTICGENTO_RENDER_FACETS__');
 
-
+        Varien_Profiler::start('__ELASTICGENTO_QUERY__');
+        $this->_query->setFrom($this->getPageSize() * ($this->_curPage - 1));
+        $this->_query->setSize($this->getPageSize());
+        $type = $this->getAdapter()->getIndex($this->_storeId)->getType($this->getEntity()->getType());
+        try {
+//            var_dump(json_encode($this->_query->toArray()));
+            $results = $type->search($this->_query);
+        } catch (Exception $e) {
+//            var_dump($e->getMessage());
+        }
+        Varien_Profiler::stop('__ELASTICGENTO_QUERY__');
         $this->_afterLoad();
         Mage::dispatchEvent('elasticgento_collection_abstract_load_after', array('collection' => $this));
         Varien_Profiler::stop('__EAV_COLLECTION_AFTER_LOAD__');
+        $this->_setIsLoaded();
         return $this;
     }
 
