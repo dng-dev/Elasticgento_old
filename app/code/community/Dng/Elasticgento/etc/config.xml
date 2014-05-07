@@ -25,6 +25,12 @@
             <elasticgento>
                 <class>Dng_Elasticgento_Block</class>
             </elasticgento>
+            <catalog>
+                <!-- Rewrite Catalog_Layer_View -->
+                <rewrite>
+                    <layer_view>Dng_Elasticgento_Block_Catalog_Layer_View</layer_view>
+                </rewrite>
+            </catalog>
         </blocks>
         <models>
             <elasticgento>

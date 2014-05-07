@@ -11,7 +11,7 @@
 class Dng_Elasticgento_Model_Catalog_Layer_Filter_Category extends Mage_Catalog_Model_Layer_Filter_Category
 {
     /**
-     * Adds category filter to product collection.
+     * add category facet filter to product collection.
      *
      * @param Mage_Catalog_Model_Category $category
      * @return Dng_Elasticgento_Model_Catalog_Layer_Filter_Category
@@ -26,15 +26,16 @@ class Dng_Elasticgento_Model_Catalog_Layer_Filter_Category extends Mage_Catalog_
      * Adds facet condition to product collection.
      *
      * @return Dng_Elasticgento_Model_Catalog_Layer_Filter_Category
+     * @todo add filter for current category childen
      */
     public function addFacetToCollection()
     {
         /** @var $category Mage_Catalog_Model_Category */
-        $category = $this->getCategory();
-        $childrenCategories = $category->getChildrenCategories();
+        #$category = $this->getCategory();
+        #$childrenCategories = $category->getChildrenCategories();
         /** @todo refactor */
-        $useFlat = (bool)Mage::getStoreConfig('catalog/frontend/flat_catalog_category');
-        $categories = ($useFlat) ? array_keys($childrenCategories) : array_keys($childrenCategories->toArray());
+        #$useFlat = (bool)Mage::getStoreConfig('catalog/frontend/flat_catalog_category');
+        #$categories = ($useFlat) ? array_keys($childrenCategories) : array_keys($childrenCategories->toArray());
         $facet = new \Elastica\Facet\Terms('categories');
         $facet->setField('categories');
         $facet->setSize(10);
@@ -97,7 +98,7 @@ class Dng_Elasticgento_Model_Catalog_Layer_Filter_Category extends Mage_Catalog_
         if ($data === null) {
             $categories = $this->getCategory()->getChildrenCategories();
 
-            /** @var $productCollection Dng_Elasticgento_Model_Catalog_Layer_Filter_Category */
+            /** @var $productCollection Dng_Elasticgento_Model_Resource_Catalog_Product_Collection */
             $productCollection = $layer->getProductCollection();
             $facets = $productCollection->getFacetData('categories');
             $data = array();
