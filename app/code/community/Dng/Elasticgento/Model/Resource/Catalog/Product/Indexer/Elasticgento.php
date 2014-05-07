@@ -106,10 +106,10 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Indexer_Elasticgento exten
         $type = $this->_getClient()->getIndex($storeId)->getType($this->getEntityType());
         $elasticaMapping = new \Elastica\Type\Mapping($type);
         $elasticaMapping->setParam('_all', array('enabled' => false));
-        #$elasticaMapping->setParam('dynamic', false);
         $elasticaMapping->setParam('dynamic_templates', $dynamicTemplates);
         $elasticaMapping->setProperties($typeMappings);
         $elasticaMapping->send();
+        //set index to be prepared
         $this->_preparedIndexes[$storeId] = true;
         return $this;
     }
@@ -148,6 +148,57 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Indexer_Elasticgento exten
     }
 
     /**
+     * get Elastica documents
+     *
+     * @param int $storeId
+     * @param array $productIds update only product(s)
+     * @return array
+     */
+    private function _getDocuments($storeId, $parameters = array())
+    {
+        list($type) = array_keys($parameters);
+        $adapter = $this->_getReadAdapter();
+        $websiteId = (int)Mage::app()->getStore($storeId)->getWebsite()->getId();
+        $fieldList = array('entity_id', 'type_id', 'attribute_set_id');
+        $colsList = array('entity_id', 'type_id', 'attribute_set_id');
+
+        $fields = Mage::getModel('elasticgento/catalog_product_elasticgento_mappings')->setStoreId($storeId)->getMappings();
+        $select = $this->_getReadAdapter()->select()
+            ->from(array('e' => $this->getTable('catalog/product')), $colsList)
+            ->join(
+                array('wp' => $this->getTable('catalog/product_website')),
+                'e.entity_id = wp.product_id AND wp.website_id = :website_id',
+                array());
+        foreach ($this->getAttributes($storeId) as $attributeCode => $attribute) {
+            /** @var $attribute Mage_Eav_Model_Entity_Attribute */
+            if ($attribute->getBackend()->getType() == 'static') {
+                if (false === isset($fields[$attributeCode])) {
+                    continue;
+                }
+                $fieldList[] = $attributeCode;
+                $select->columns($attributeCode, 'e');
+            }
+        }
+        if ($type !== 'range') {
+            $select->where('e.entity_id BETWEEN ? AND ?', array_map('intval', $parameters['from']), array_map('intval', $parameters['to']));
+        }
+        $documents = array();
+        //loop over result and create documents
+        foreach ($adapter->query($select, array('website_id' => (int)$websiteId))->fetchAll() as $entity) {
+            $document = $this->_getClient()->getDocument($this->getEntityType() . '_' . $entity['entity_id'], $entity);
+            //enable autocreation on update
+            $document->setDocAsUpsert(true);
+            $documents[$entity['entity_id']] = $document;
+        }
+        return $documents;
+    }
+
+    public function getAttributes($storeId)
+    {
+        return Mage::getModel('elasticgento/catalog_product_elasticgento_mappings')->setStoreId($storeId)->getAttributes();
+    }
+
+    /**
      * Retrieve Catalog Product Flat helper
      *
      * @return Mage_Catalog_Helper_Product_Flat
@@ -179,8 +230,12 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Indexer_Elasticgento exten
         $this->_prepareIndex($storeId);
         //get reindex chunks on catalog_product primary key because in is faster then working with limits
         $chunks = $this->_getIndexRangeChunks($storeId);
-
-
+        //loop over chunks
+        foreach ($chunks as $chunk) {
+            $documents = $this->_getDocuments($storeId, array('range' => $chunk));
+            //finally send documents to the index
+            $this->_getClient()->getIndex($storeId)->getType($this->getEntityType())->updateDocuments($documents);
+        }
         $flag = $this->getFlatHelper()->getFlag();
         $flag->setIsBuilt(true)->setStoreBuilt($storeId, true)->save();
         return $this;
