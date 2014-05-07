@@ -118,4 +118,15 @@ class Dng_Elasticgento_Model_Resource_Client extends \Elastica\Client
 
         return preg_replace($pattern, $replace, $value);
     }
+
+    /**
+     * get a new Document
+     *
+     * @param integer|string $id
+     * @param mixed $data
+     */
+    public function getDocument($id, $data)
+    {
+        return $document = new Elastica\Document($id, $data);
+    }
 }
