@@ -306,6 +306,59 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Indexer_Elasticgento exten
         return $documents;
     }
 
+    /**
+     * add product category data to documents
+     *
+     * @param int $storeId
+     * @param array $documents
+     * @return array
+     */
+    private function _addCategoryData($storeId, $documents)
+    {
+        /** @var Mage_Core_Model_Resource_Db_Abstract $adapter */
+        $adapter = $this->_getReadAdapter();
+
+        $columns = array(
+            'entity_id' => 'product_id',
+            'categories' => new Zend_Db_Expr("GROUP_CONCAT(IF(is_parent = 1, category_id, '') SEPARATOR ';')"),
+            'anchors' => new Zend_Db_Expr("GROUP_CONCAT(IF(is_parent = 0, category_id, '') SEPARATOR ';')"),
+            'sort' => new Zend_Db_Expr("GROUP_CONCAT(CONCAT(category_id, '_', position) SEPARATOR ';')"),
+        );
+        $select = $adapter->select();
+
+        $select->from(array($this->getTable('catalog/category_product_index')), $columns);
+        $select->where('product_id IN (?)', array_map('intval', array_keys($documents)));
+        $select->where('store_id = ?', $storeId);
+        $select->group('product_id');
+        //order by null because sorting is done within group by
+        $select->order(new Zend_Db_Expr('NULL'));
+        //fetch results
+        foreach ($adapter->fetchAll($select) as $data) {
+            //check document exists
+            if (true === isset($documents[$data['entity_id']])) {
+                $categories = array();
+                //get all categories for product
+                foreach (array_values(array_filter(explode(';', $data['categories']))) as $categoryId) {
+                    $categories[] = (int)$categoryId;
+                }
+                $documents[$data['entity_id']]->set('categories', $categories);
+                //get all anchors where product is visible
+                $anchors = array();
+                foreach (array_values(array_filter(explode(';', $data['anchors']))) as $categoryId) {
+                    $anchors[] = (int)$categoryId;
+                }
+                $documents[$data['entity_id']]->set('anchors', $anchors);
+                //get sort order for all categories and anchors
+                $sortorder = array();
+                foreach (explode(';', $data['sort']) as $sort) {
+                    list($categoryId, $order) = explode('_', $sort);
+                    $sortorder['category_' . $categoryId] = (int)$order;
+                }
+                $documents[$data['entity_id']]->set('category_sort', $sortorder);
+            }
+        }
+        return $documents;
+    }
 
     /**
      * add product price data to documents
@@ -454,6 +507,7 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Indexer_Elasticgento exten
                 }
             }
             $documents = $this->_addPriceData($storeId, $documents);
+            $documents = $this->_addCategoryData($storeId, $documents);
             //finally send documents to the index
             $this->_getClient()->getIndex($storeId)->getType($this->getEntityType())->updateDocuments($documents);
         }
