@@ -417,7 +417,7 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Indexer_Elasticgento exten
      * @param $documents
      * @return mixed
      */
-    private function _addSuperLinkData($documents)
+    protected function _addSuperLinkData($documents)
     {
         $adapter = $this->_getReadAdapter();
         $select = $adapter->select()
@@ -444,7 +444,7 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Indexer_Elasticgento exten
      * @param array $documents
      * @return array
      */
-    private function _addLinkData($documents)
+    protected function _addLinkData($documents)
     {
         $adapter = $this->_getReadAdapter();
         $select = $adapter->select()
@@ -511,7 +511,7 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Indexer_Elasticgento exten
     public function getAttribute($storeId, $attributeCode)
     {
         $attributes = $this->getAttributes($storeId);
-        if (!isset($attributes[$attributeCode])) {
+        if (false === isset($attributes[$attributeCode])) {
             $attribute = Mage::getModel('catalog/resource_eav_attribute')
                 ->loadByCode($this->getEntityTypeId(), $attributeCode);
             if (!$attribute->getId()) {
