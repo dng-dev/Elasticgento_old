@@ -442,8 +442,7 @@ abstract class Dng_Elasticgento_Model_Resource_Collection extends Mage_Eav_Model
                     $object->setData(str_replace('_value', '', $field), $value);
                 }
             }
-            $object->setData('is_salable',true);
-            $object->addData($data['price_index']['price_customer_group_0']);
+            $this->addSpecialObjectData($object);
             $this->addItem($object);
             if (isset($this->_itemsById[$object->getId()])) {
                 $this->_itemsById[$object->getId()][] = $object;
@@ -462,6 +461,18 @@ abstract class Dng_Elasticgento_Model_Resource_Collection extends Mage_Eav_Model
         Varien_Profiler::stop('__EAV_COLLECTION_AFTER_LOAD__');
         $this->_setIsLoaded();
         return $this;
+    }
+
+    /**
+     * apply object add data for nested fields
+     *
+     * @param $object
+     */
+    protected function addSpecialObjectData($object)
+    {
+        foreach ($this->_selectExtraAttributes as $field => $callback) {
+            call_user_func(array($this, $callback), $object, $field);
+        }
     }
 
     /**

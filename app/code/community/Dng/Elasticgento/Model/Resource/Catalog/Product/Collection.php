@@ -104,6 +104,73 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Collection extends Dng_Ela
         return parent::_renderFiltersBefore();
     }
 
+    /**
+     * Add URL rewrites to collection
+     *
+     */
+    protected function _addUrlRewrite()
+    {
+        $urlRewrites = null;
+        if ($this->_cacheConf) {
+            if (!($urlRewrites = Mage::app()->loadCache($this->_cacheConf['prefix'] . 'urlrewrite'))) {
+                $urlRewrites = null;
+            } else {
+                $urlRewrites = unserialize($urlRewrites);
+            }
+        }
+
+        if (!$urlRewrites) {
+            $productIds = array();
+            foreach ($this->_items as $item) {
+                $productIds[] = $item->getEntityId();
+            }
+            #if (!count($productIds)) {
+            #    return;
+            #}
+
+            $select = $this->_factory->getProductUrlRewriteHelper()
+                ->getTableSelect($productIds, $this->_urlRewriteCategory, Mage::app()->getStore()->getId());
+
+            $urlRewrites = array();
+            foreach (Mage::getSingleton('core/resource')->getConnection('core_read')->fetchAll($select) as $row) {
+                if (!isset($urlRewrites[$row['product_id']])) {
+                    $urlRewrites[$row['product_id']] = $row['request_path'];
+                }
+            }
+
+            if ($this->_cacheConf) {
+                Mage::app()->saveCache(
+                    serialize($urlRewrites),
+                    $this->_cacheConf['prefix'] . 'urlrewrite',
+                    array_merge($this->_cacheConf['tags'], array(Mage_Catalog_Model_Product_Url::CACHE_TAG)),
+                    $this->_cacheLifetime
+                );
+            }
+        }
+
+        foreach ($this->_items as $item) {
+            if (empty($this->_urlRewriteCategory)) {
+                $item->setDoNotUseCategoryId(true);
+            }
+            if (isset($urlRewrites[$item->getEntityId()])) {
+                $item->setData('request_path', $urlRewrites[$item->getEntityId()]);
+            } else {
+                $item->setData('request_path', false);
+            }
+        }
+    }
+
+    /**
+     * after load callback
+     *
+     * @return Dng_Elasticgento_Model_Resource_Collection_Abstract
+     */
+    protected function _afterLoad()
+    {
+        if ($this->_addUrlRewrite) {
+            $this->_addUrlRewrite($this->_urlRewriteCategory);
+        }
+    }
 
     /**
      * Add minimal price data to result
@@ -141,7 +208,7 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Collection extends Dng_Ela
         }
 
         if (null !== $customerGroupId) {
-            $this->_selectExtraAttributes['price_index.price_customer_group_' . $customerGroupId] = 'addPriceToProduct';
+            $this->_selectExtraAttributes['price_index.price_customer_group_' . $customerGroupId] = 'addPriceDataToProduct';
         }
         return $this;
     }
@@ -208,9 +275,28 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Collection extends Dng_Ela
         return $this;
     }
 
-    public function getFacetedData()
+    /**
+     * callback to add price data after collection loaded
+     *
+     * @param Mage_Catalog_Model_Product $object
+     */
+    protected function addPriceDataToProduct(Mage_Catalog_Model_Product $object, $field)
     {
-        return array();
+        $nestedFields = explode('.', $field);
+        foreach ($nestedFields as $nestedField) {
+            if (false === isset($data)) {
+                $data = $object->getData($nestedField);
+            } elseif (false !== $data) {
+                $data = true === isset($data[$nestedField]) ? $data[$nestedField] : false;
+            }
+        }
+        if (null !== $data && false !== $data && true === is_array($data)) {
+            foreach ($data as $key => $value) {
+                $object->setData($key, $value);
+            }
+        }
+        //remove price index
+        $object->unsetData('price_index');
     }
 
     /**
