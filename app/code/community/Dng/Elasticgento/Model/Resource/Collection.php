@@ -8,10 +8,15 @@
  * @author    Daniel Niedergesäß <daniel.niedergesaess@gmail.com>
  * @version   1.0.0
  */
-abstract class Dng_Elasticgento_Model_Resource_Collection extends Varien_Data_Collection
+abstract class Dng_Elasticgento_Model_Resource_Collection extends Mage_Eav_Model_Entity_Collection_Abstract
 {
     const SORT_ORDER_ASC = 'ASC';
     const SORT_ORDER_DESC = 'DESC';
+
+    /**
+     * @var Dng_Elasticgento_Model_Resource_Client
+     */
+    protected $_client = null;
 
     /**
      * Current scope (store Id)
@@ -28,15 +33,11 @@ abstract class Dng_Elasticgento_Model_Resource_Collection extends Varien_Data_Co
     protected $_entity;
 
     /**
-     * Collection constructor
+     * extra attributes to automaticly map
      *
-     * @param Mage_Core_Model_Resource_Abstract $resource
+     * @var array
      */
-    public function __construct($resource = null)
-    {
-        $this->_construct();
-        $this->setConnection($this->getEntity()->getReadConnection());
-    }
+    protected $_selectExtraAttributes = array();
 
     /**
      * resource collection initalization
@@ -150,6 +151,16 @@ abstract class Dng_Elasticgento_Model_Resource_Collection extends Varien_Data_Co
     }
 
     /**
+     * render collection filters
+     *
+     * @return Dng_Elasticgento_Model_Resource_Collection
+     */
+    protected function _renderFilters()
+    {
+        return $this;
+    }
+
+    /**
      * Hook for operations after rendering filters
      *
      * @return Dng_Elasticgento_Model_Resource_Collection
@@ -170,6 +181,16 @@ abstract class Dng_Elasticgento_Model_Resource_Collection extends Varien_Data_Co
     }
 
     /**
+     * render collection facets
+     *
+     * @return Dng_Elasticgento_Model_Resource_Collection
+     */
+    protected function _renderFacets()
+    {
+        return $this;
+    }
+    
+    /**
      * Hook for operations after rendering facets
      *
      * @return Dng_Elasticgento_Model_Resource_Collection
@@ -180,31 +201,11 @@ abstract class Dng_Elasticgento_Model_Resource_Collection extends Varien_Data_Co
     }
 
     /**
-     * render collection filters
-     *
-     * @return Dng_Elasticgento_Model_Resource_Collection
-     */
-    protected function _renderFilters()
-    {
-        return $this;
-    }
-
-    /**
      * render collection sort
      *
      * @return Dng_Elasticgento_Model_Resource_Collection
      */
     protected function _renderOrders()
-    {
-        return $this;
-    }
-
-    /**
-     * render collection facets
-     *
-     * @return Dng_Elasticgento_Model_Resource_Collection
-     */
-    protected function _renderFacets()
     {
         return $this;
     }
@@ -251,5 +252,15 @@ abstract class Dng_Elasticgento_Model_Resource_Collection extends Varien_Data_Co
         Mage::dispatchEvent('elasticgento_collection_abstract_load_after', array('collection' => $this));
         Varien_Profiler::stop('__EAV_COLLECTION_AFTER_LOAD__');
         return $this;
+    }
+
+    /**
+     * Get all data array for collection
+     *
+     * @return array
+     */
+    public function getData()
+    {
+        return $this->_data;
     }
 }
