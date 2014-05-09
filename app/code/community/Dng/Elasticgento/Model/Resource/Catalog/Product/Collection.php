@@ -54,6 +54,13 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Collection extends Dng_Ela
     protected $_factory;
 
     /**
+     * default fields to load
+     *
+     * @var array
+     */
+    protected $_defaultFields = array('entity_id', 'attribute_set_id', 'type_id', 'is_saleablefi');
+
+    /**
      * Initialize resources
      *
      */
@@ -111,13 +118,13 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Collection extends Dng_Ela
     protected function _addUrlRewrite()
     {
         $urlRewrites = null;
-        if ($this->_cacheConf) {
-            if (!($urlRewrites = Mage::app()->loadCache($this->_cacheConf['prefix'] . 'urlrewrite'))) {
-                $urlRewrites = null;
-            } else {
-                $urlRewrites = unserialize($urlRewrites);
-            }
+        #if ($this->_cacheConf) {
+        if (!($urlRewrites = Mage::app()->loadCache($this->_cacheConf['prefix'] . 'urlrewrite' . 'urlrewrite'))) {
+            $urlRewrites = null;
+        } else {
+            $urlRewrites = unserialize($urlRewrites);
         }
+        #}
 
         if (!$urlRewrites) {
             $productIds = array();
@@ -138,14 +145,14 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Collection extends Dng_Ela
                 }
             }
 
-            if ($this->_cacheConf) {
-                Mage::app()->saveCache(
-                    serialize($urlRewrites),
-                    $this->_cacheConf['prefix'] . 'urlrewrite',
-                    array_merge($this->_cacheConf['tags'], array(Mage_Catalog_Model_Product_Url::CACHE_TAG)),
-                    $this->_cacheLifetime
-                );
-            }
+            #if ($this->_cacheConf) {
+            Mage::app()->saveCache(
+                serialize($urlRewrites),
+                $this->_cacheConf['prefix'] . 'urlrewrite' . 'urlrewrite',
+                array_merge($this->_cacheConf['tags'], array(Mage_Catalog_Model_Product_Url::CACHE_TAG)),
+                $this->_cacheLifetime
+            );
+            #}
         }
 
         foreach ($this->_items as $item) {
@@ -170,6 +177,18 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Collection extends Dng_Ela
         if ($this->_addUrlRewrite) {
             $this->_addUrlRewrite($this->_urlRewriteCategory);
         }
+    }
+
+    /**
+     * callback before object is added to collection
+     *
+     * @param Mage_Catalog_Model_Product $object
+     * @return $this
+     */
+    protected function _addObjectBefore($object, $data)
+    {
+        $object->setData('is_salable', $object->getData('status'));
+        return parent::_addObjectBefore($object, $data);
     }
 
     /**
@@ -280,23 +299,19 @@ class Dng_Elasticgento_Model_Resource_Catalog_Product_Collection extends Dng_Ela
      *
      * @param Mage_Catalog_Model_Product $object
      */
-    protected function addPriceDataToProduct(Mage_Catalog_Model_Product $object, $field)
+    protected function addPriceDataToProduct(Mage_Catalog_Model_Product $object, $data, $field)
     {
         $nestedFields = explode('.', $field);
-        foreach ($nestedFields as $nestedField) {
-            if (false === isset($data)) {
-                $data = $object->getData($nestedField);
-            } elseif (false !== $data) {
-                $data = true === isset($data[$nestedField]) ? $data[$nestedField] : false;
-            }
+        $nestedFieldsCount = count($nestedFields);
+        for ($i = 0; $i < $nestedFieldsCount; $i++) {
+            $data = $data[$nestedFields[$i]];
         }
+
         if (null !== $data && false !== $data && true === is_array($data)) {
             foreach ($data as $key => $value) {
                 $object->setData($key, $value);
             }
         }
-        //remove price index
-        $object->unsetData('price_index');
     }
 
     /**

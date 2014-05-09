@@ -428,21 +428,23 @@ abstract class Dng_Elasticgento_Model_Resource_Collection extends Mage_Eav_Model
         Varien_Profiler::start('__ELASTICGENTO_HANDLE_RESPONSE__');
         $this->_responseFacets = $result->getFacets();
         Varien_Profiler::stop('__ELASTICGENTO_QUERY__');
-
+        Varien_Profiler::start('__ELASTICGENTO_HANDLE_RESPONSE__');
         foreach ($result->getResults() as $item) {
-            /** @var $item Elastica\Result */
-            $data = $item->getSource();
-            ksort($data);
-            /** @var Mage_Catalog_Model_Product $object */
+            $data = $item->getData();
             $object = $this->getNewEmptyItem();
-            foreach ($data as $field => $value) {
-                if (false === isset($data[$field . '_value'])) {
-                    $object->setData($field, $value);
-                } elseif (substr($field, -6) === '_value') {
-                    $object->setData(str_replace('_value', '', $field), $value);
+            foreach ($this->_defaultFields as $field) {
+                if (true === isset($data[$field])) {
+                    $object->setData($field, $data[$field]);
                 }
             }
-            $this->addSpecialObjectData($object);
+            foreach ($this->_selectAttributes as $attributeCode => $attributeId) {
+                if (isset($data[$attributeCode . '_value'])) {
+                    $object->setData($attributeCode, $data[$attributeCode . '_value']);
+                } else {
+                    $object->setData($attributeCode, $data[$attributeCode]);
+                }
+            }
+            $this->_addObjectBefore($object, $data);
             $this->addItem($object);
             if (isset($this->_itemsById[$object->getId()])) {
                 $this->_itemsById[$object->getId()][] = $object;
@@ -463,16 +465,19 @@ abstract class Dng_Elasticgento_Model_Resource_Collection extends Mage_Eav_Model
         return $this;
     }
 
+
     /**
-     * apply object add data for nested fields
+     * callback before object is added to collection
      *
      * @param $object
+     * @return $this
      */
-    protected function addSpecialObjectData($object)
+    protected function _addObjectBefore($object, $data)
     {
         foreach ($this->_selectExtraAttributes as $field => $callback) {
-            call_user_func(array($this, $callback), $object, $field);
+            call_user_func(array($this, $callback), $object, $data, $field);
         }
+        return $this;
     }
 
     /**
